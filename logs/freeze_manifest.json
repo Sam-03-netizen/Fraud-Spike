@@ -1,0 +1,21 @@
+{
+  "frozen_at_utc": "2026-08-28T11:09:05.460237",
+  "generator_seed": 42,
+  "files": {
+    "raw_transactions.parquet": "df8de324dd134f98058b9fceb86f63a1a813be4119c16779424287bd8aa187d9",
+    "train.parquet": "0861aeaff74b86124b18da73bef9d31605d066d1a834dd92588690bdb8bf9f7a",
+    "val.parquet": "6f5b7c7f8a5110d046b8c824da557be02d01d6523ccf07b55b00db45cb0dee48",
+    "test.parquet": "39779723a0c55b99c1469bf0a7580e5352c238cdfb74591c3665290c3916b312"
+  },
+  "row_counts": {
+    "train": 81750,
+    "val": 27448,
+    "test": 30445
+  },
+  "fraud_rate": {
+    "train": 0.01817737003058104,
+    "val": 0.02131302827164092,
+    "test": 0.022959435046805716
+  },
+  "note": "TEST SET IS FROZEN. Do not inspect label_fraud distribution on test beyond this manifest. Evaluation script may touch test.parquet at most twice (sanity run + final run) \u2014 see logs/test_access_log.txt for every access."
+}
