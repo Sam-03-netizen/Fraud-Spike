@@ -37,6 +37,27 @@ and only a modest recall drop (95.9% → 91.7%). This is the single strongest pi
 of evidence in the whole project that the model learned transferable attack
 patterns rather than merchant-specific memorization.
 
+**Root-cause note on the recall gap (verified programmatically, not assumed):**
+`M09_gaming` has 100% NaN values in exactly 3 of 14 features —
+`amount_zscore`, `velocity_zscore`, `velocity_zscore_10min` — confirmed by
+direct inspection of `test_features.parquet`. The cause is in
+`build_features.py`: per-merchant baseline mean/std for these z-score features
+are computed only from train-period rows (`train_mask`), then merged in via a
+left join on `merchant_id`. Since `M09_gaming` has zero rows in train by
+design, it has no matching baseline row, so the merge produces NaN for all
+its rows on these three features. LightGBM handles this natively via
+missing-value splits, which is why the model still performs well — but this
+is a genuine, previously undetected limitation, not a non-issue.
+
+**Product implication:** a brand-new merchant onboarding to this system in
+production would face the same cold-start gap — no historical baseline
+exists yet. A real deployment would need a fallback (e.g., a category-level
+default baseline) for new merchants. This is noted as future work rather
+than fixed now, per the "no architecture changes except hard blockers" rule
+locked before this evaluation — the model still meets its targets despite
+the gap, so patching it retroactively would violate the same discipline that
+makes this evaluation trustworthy in the first place.
+
 ## Per-attack-type recall (test)
 
 | Attack type | n | Recall |

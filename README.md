@@ -143,6 +143,15 @@ in production. It has not been tested against live Razorpay infrastructure.
 - Velocity-based features could plausibly be evaded by an attacker spreading
   transactions across days rather than minutes; this is out of scope for the
   current feature set and noted as future work.
+- **Cold-start baseline gap for new merchants**: 3 features (`amount_zscore`,
+  `velocity_zscore`, `velocity_zscore_10min`) depend on a per-merchant
+  baseline computed from train-period data. A merchant with no train-period
+  history (as `M09_gaming` has, by design) gets NaN on these features —
+  LightGBM handles this via missing-value splits, and the held-out merchant
+  still achieved 100% precision / 91.7% recall despite it, but a production
+  deployment would need a fallback baseline (e.g., category-level defaults)
+  for genuinely new merchants. Verified directly on the test set: confirmed
+  via `test_features.parquet` inspection, not assumed.
 - No LLM narrative layer was added — the core SHAP/template explanations were
   judged sufficient without it, per the "don't add complexity without proven
   need" principle applied throughout.
