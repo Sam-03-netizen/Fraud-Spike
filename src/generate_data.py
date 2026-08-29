@@ -391,7 +391,8 @@ def main():
             "is_new_geo", "status", "label_fraud", "other_fraud", "burst_id", "event_type"]
     df = df[cols]
 
-    out_path = Path("/home/claude/fraud-spike-detector/data/raw_transactions.parquet")
+    project_root = Path(__file__).resolve().parent.parent
+    out_path = project_root / "data" / "raw_transactions.parquet"
     df.to_parquet(out_path, index=False)
     print(f"Saved: {out_path} ({df.shape[0]} rows, {df.shape[1]} cols)")
 
@@ -400,7 +401,7 @@ def main():
         [dict(merchant_id=m, day=d, hour=h, type=t, stealth=s, kind="attack") for m, d, h, t, s in attack_events] +
         [dict(merchant_id=m, day=d, hour=h, type=t, stealth=s, kind="legit") for m, d, h, t, s in legit_events]
     )
-    schedule_df.to_csv("/home/claude/fraud-spike-detector/data/event_schedule.csv", index=False)
+    schedule_df.to_csv(project_root / "data" / "event_schedule.csv", index=False)
 
     return df
 

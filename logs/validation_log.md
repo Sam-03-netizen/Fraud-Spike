@@ -28,3 +28,33 @@
   been tested yet (reserved entirely for the frozen test set).
 - CAVEAT: threshold was tuned on this same validation set. These are not unbiased
   numbers. The single frozen test evaluation has not yet been run.
+
+## Day 3 — Ablation experiments (all on validation, test untouched)
+
+### Experiment 1: Isolation Forest as an added feature (locked doc §8)
+- LightGBM alone: PR-AUC 0.99430
+- LightGBM + IF anomaly score: PR-AUC 0.99519 (delta +0.00089)
+- DECISION: DROPPED. Gain is below the 0.005 materiality threshold — noise, not signal.
+  LightGBM alone is already near ceiling on this dataset. IF's standalone PR-AUC
+  (0.854) confirms it's a meaningfully weaker detector on its own, consistent with
+  the original architecture review that demoted it from headline status.
+
+### Experiment 2: EWMA / CUSUM vs simple rolling-threshold burst aggregation (locked doc §6)
+| Method | Burst recall | False alerts | Median time-to-detect |
+|---|---|---|---|
+| Simple rolling-threshold (current, frozen) | 100% (18/18) | 0 | 29.4s |
+| EWMA (alpha=0.5, k=4sigma) | 88.9% (16/18) | 2 | 13.5s |
+| CUSUM (k=0.5, h=5) | 72.2% (13/18) | 0 | 22.9s |
+- DECISION: KEEP the simple rolling-threshold rule. It dominates on both recall and
+  false-alert rate. EWMA detects faster but at the cost of missed bursts and false
+  alarms -- not a favorable trade given the simple method is already at ceiling.
+  Parameters were not exhaustively tuned; noted as a limitation, not pursued further
+  since there's no headroom left to justify it.
+
+### Held-out merchant (M09_gaming) generalization
+- NOT tested. M09_gaming exists only in the test split (day_index >= 36), per the
+  frozen holdout design (locked doc §4). Testing it now would mean touching test-set
+  labels before the single frozen evaluation run -- exactly the discipline the freeze
+  protocol exists to prevent. This remains an open question until the Day 5 frozen
+  test evaluation, at which point it will be reported alongside the seen-merchant
+  results, not folded into a single blended number.

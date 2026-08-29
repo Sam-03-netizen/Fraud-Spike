@@ -4,19 +4,21 @@ Test set is not touched here — see logs/test_access_log.txt for the only
 permitted test accesses (locked doc §1 freeze protocol).
 """
 import sys
-sys.path.insert(0, "/home/claude/fraud-spike-detector/src")
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 import numpy as np
 import pandas as pd
 import lightgbm as lgb
-from pathlib import Path
 
 from evaluation import (
     transaction_level_metrics, pr_auc, find_burst_windows,
     burst_level_metrics, get_true_bursts,
 )
 
-DATA_DIR = Path("/home/claude/fraud-spike-detector/data")
+DATA_DIR = PROJECT_ROOT / "data"
 
 FEATURE_COLUMNS = [
     "amount", "amount_zscore",
