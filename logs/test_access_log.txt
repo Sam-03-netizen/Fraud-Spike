@@ -1,1 +1,3 @@
 # Append-only log of every access to test.parquet's labels. Never overwrite.
+2026-08-29T16:32:30.244770+00:00 | ACCESS 1: SINGLE FINAL EVALUATION. Frozen LightGBM model (hash 70ddbdd0ef1c) and threshold_txn=0.9876, both selected on validation only (Day 2). No retuning on test. Script: src/day5_final_test_evaluation.py
+2026-08-29T16:33:27.416394+00:00 | ACCESS 1 COMPLETE: single frozen evaluation finished. Results written to logs/test_evaluation_report.md. No further test-label access anticipated.
