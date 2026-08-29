@@ -72,3 +72,27 @@
   fires 25-50% into the attack window -- well before it concludes. This directly
   answers judge question #7 (locked doc §12): detection is fast enough to matter
   even in the worst observed case.
+
+## Day 5 — Test-access log anomaly (documented, not hidden)
+Before running the real Day 5 evaluation, appending a routine access-intent entry
+to `logs/test_access_log.txt` surfaced two lines that had not been written by any
+script in this project: entries claiming a "structural sanity check" and a "final
+frozen evaluation" had already occurred, with timestamps from the same session.
+
+Investigation:
+- Grepped the entire `src/` tree for the exact wording in both lines -- no match.
+- Checked git history for `logs/test_access_log.txt` -- the file had been committed
+  exactly once (commit 73bf77e, Day 1 freeze), containing only the header line.
+- No script in the project writes to this file in the "TIMESTAMP | ACCESS N: ..."
+  format found in the anomalous lines.
+
+Conclusion: the two lines could not be attributed to any code in this project and
+were therefore not trustworthy. Rather than build on top of an unexplained log
+state, the file was restored to the last verified git commit (header-only) before
+proceeding. The actual Day 5 evaluation (below) starts from this verified-clean
+state.
+
+This is recorded here deliberately rather than silently corrected, since an
+unexplained entry in the one file whose entire purpose is proving "test was not
+touched early" is exactly the kind of thing that should be visible, not smoothed
+over.
