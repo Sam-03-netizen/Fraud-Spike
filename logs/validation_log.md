@@ -58,3 +58,17 @@
   protocol exists to prevent. This remains an open question until the Day 5 frozen
   test evaluation, at which point it will be reported alongside the seen-merchant
   results, not folded into a single blended number.
+
+## Day 4 — Dashboard verification (local run, cross-checked against sandbox)
+- User ran the Streamlit dashboard locally; every displayed number matched the
+  sandbox's automated AppTest run exactly (same transaction IDs, SHAP values,
+  cost table figures) -- further confirmation of end-to-end determinism.
+- Chart artifact investigated: the replay timeline's x-axis shows a "next day"
+  boundary tick past the last data point. Verified programmatically that day 27's
+  data stays entirely within 2026-01-28 (00:01:14 to 23:59:50) -- this is a
+  cosmetic Altair/Streamlit axis-rendering quirk, not a data leakage bug.
+- Max time-to-detect observed (540.3s) corresponds to a slow-drip burst.
+  Slow-drip burst durations range 1,054-2,088s, so even the slowest detection
+  fires 25-50% into the attack window -- well before it concludes. This directly
+  answers judge question #7 (locked doc §12): detection is fast enough to matter
+  even in the worst observed case.
