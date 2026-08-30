@@ -96,3 +96,44 @@ This is recorded here deliberately rather than silently corrected, since an
 unexplained entry in the one file whose entire purpose is proving "test was not
 touched early" is exactly the kind of thing that should be visible, not smoothed
 over.
+
+## Day 5 (continued) — Judge-style re-verification found a real determinism gap, fixed
+User ran the full judge-testing checklist independently on their Windows machine.
+All model/evaluation numbers reproduced exactly. One hash check failed:
+`raw_transactions.parquet` MISMATCHED against `freeze_manifest.json`, while
+`train.parquet`/`val.parquet`/`test.parquet` matched.
+
+Investigation:
+- Regenerating `raw_transactions.parquet` in the original sandbox (same machine,
+  same environment) ALSO produced a different hash from the manifest -- ruling out
+  a cross-machine/library-version explanation.
+- Root cause confirmed directly: `random.seed()` and `np.random.seed()` are
+  properly seeded and reproduce identically across runs (verified), but
+  `uuid.uuid4()` -- used for every `customer_id`, `card_id`, `device_fingerprint`,
+  and `burst_id` -- is built on `os.urandom()` and is NEVER affected by seeding.
+  Every run generates fresh, genuinely random ID strings.
+- Explains why `train.parquet`/`val.parquet`/`test.parquet` matched: no script in
+  the shipped pipeline regenerates those three files, so they were simply the
+  untouched original files sitting on disk -- that check wasn't testing
+  regeneration at all.
+
+Why this does NOT invalidate any reported result:
+- No detection logic depends on the literal ID string values -- only on
+  structural patterns (e.g., "many transactions share one IP subnet"), which
+  regenerate consistently every run regardless of the actual ID text.
+- Every model performance metric (precision, recall, PR-AUC, held-out-merchant
+  results) reproduced EXACTLY across two independent machines (Linux sandbox,
+  Windows laptop), confirmed both before and after this investigation.
+
+Fix applied: replaced `uuid.uuid4()` with a seeded `random.Random(SEED)`-based
+UUID generator in `generate_data.py`. Verified: two fresh runs now produce
+byte-identical `raw_transactions.parquet` (hash matched across both runs).
+Full pipeline re-run confirmed all downstream metrics unchanged by the fix, as
+expected.
+
+Decision: the ALREADY-FROZEN, ALREADY-EVALUATED data files (matching
+`freeze_manifest.json`) are kept as the official dataset -- not regenerated --
+since the fix doesn't change any result and regenerating would mean touching
+the frozen test set's identity unnecessarily. The fixed `generate_data.py` is
+shipped for correctness going forward; the README is corrected to state
+precisely what is and isn't guaranteed to reproduce byte-for-byte.

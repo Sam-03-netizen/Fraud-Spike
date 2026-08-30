@@ -30,6 +30,18 @@ np.random.seed(SEED)
 fake = Faker()
 Faker.seed(SEED)
 
+# The original version of this generator used uuid.uuid4(), which is built on
+# os.urandom() and is NOT affected by random.seed() -- this silently broke the
+# "same seed = same data" claim for ID strings (though not for anything that
+# actually affects model results -- see README). Fixed by seeding a dedicated
+# random.Random instance and using it to generate UUIDs deterministically.
+_id_rng = random.Random(SEED)
+
+
+def seeded_uuid():
+    return str(uuid.UUID(int=_id_rng.getrandbits(128)))
+
+
 GEOS = [("IN", "Mumbai"), ("IN", "Bengaluru"), ("IN", "Delhi"), ("IN", "Hyderabad"),
         ("IN", "Pune"), ("IN", "Chennai"), ("IN", "Kolkata"), ("IN", "Ahmedabad")]
 
@@ -42,10 +54,10 @@ BIN_POOL = [str(400000 + i * 137 % 99999).zfill(6) for i in range(400)]  # sprea
 def make_customer(existing_bins=None):
     geo = random.choice(GEOS)
     return dict(
-        customer_id=str(uuid.uuid4())[:12],
-        card_id=str(uuid.uuid4())[:10],
+        customer_id=str(seeded_uuid())[:12],
+        card_id=str(seeded_uuid())[:10],
         bin=random.choice(BIN_POOL),
-        device_fingerprint=str(uuid.uuid4())[:12],
+        device_fingerprint=str(seeded_uuid())[:12],
         ip_subnet=f"{random.randint(10,223)}.{random.randint(0,255)}.{random.randint(0,255)}.0/24",
         geo_country=geo[0],
         geo_city=geo[1],
@@ -107,7 +119,7 @@ def generate_normal_traffic(merchant_id, cfg, pool, active_day_range):
                 rows.append(dict(
                     timestamp=ts, merchant_id=merchant_id, customer_id=cust["customer_id"],
                     card_id=cust["card_id"], bin=cust["bin"],
-                    device_fingerprint=cust["device_fingerprint"] if not is_new_device else str(uuid.uuid4())[:12],
+                    device_fingerprint=cust["device_fingerprint"] if not is_new_device else str(seeded_uuid())[:12],
                     ip_subnet=cust["ip_subnet"],
                     amount=round(amount, 2), currency=CURRENCY, payment_method="card",
                     mcc=MCC_MAP[cfg["category"]],
@@ -125,7 +137,7 @@ def generate_normal_traffic(merchant_id, cfg, pool, active_day_range):
 # --------------------------------------------------------------------------
 def generate_attack_burst(merchant_id, cfg, start_ts, attack_type, stealth):
     """Generates one coordinated card-testing-family burst."""
-    burst_id = str(uuid.uuid4())[:8]
+    burst_id = str(seeded_uuid())[:8]
     rows = []
 
     if stealth == "fast_loud":
@@ -137,7 +149,7 @@ def generate_attack_burst(merchant_id, cfg, start_ts, attack_type, stealth):
 
     # shared attacker infrastructure
     shared_ip = f"{random.randint(1,50)}.{random.randint(0,255)}.{random.randint(0,255)}.0/24"
-    shared_device_prefix = str(uuid.uuid4())[:8]
+    shared_device_prefix = str(seeded_uuid())[:8]
     base_bin_int = random.randint(400000, 499000)
 
     for i in range(n_txn):
@@ -160,7 +172,7 @@ def generate_attack_burst(merchant_id, cfg, start_ts, attack_type, stealth):
         elif attack_type == "bot_checkout_burst":
             amount = round(np.random.lognormal(np.log(cfg["avg_amount"] * 0.6), 0.4), 2)
             decline_p = 0.35
-            device = str(uuid.uuid4())[:12]  # many distinct devices (bots)
+            device = str(seeded_uuid())[:12]  # many distinct devices (bots)
             ip = shared_ip  # but funneled through similar infra subnet
             card_bin = random.choice(BIN_POOL)
         else:  # promo_abuse_burst
@@ -172,8 +184,8 @@ def generate_attack_burst(merchant_id, cfg, start_ts, attack_type, stealth):
 
         geo = random.choice(GEOS)
         rows.append(dict(
-            timestamp=ts, merchant_id=merchant_id, customer_id=str(uuid.uuid4())[:12],
-            card_id=str(uuid.uuid4())[:10], bin=card_bin,
+            timestamp=ts, merchant_id=merchant_id, customer_id=str(seeded_uuid())[:12],
+            card_id=str(seeded_uuid())[:10], bin=card_bin,
             device_fingerprint=device, ip_subnet=ip,
             amount=amount, currency=CURRENCY, payment_method="card", mcc=MCC_MAP[cfg["category"]],
             geo_country=geo[0], geo_city=geo[1],
@@ -190,7 +202,7 @@ def generate_attack_burst(merchant_id, cfg, start_ts, attack_type, stealth):
 # --------------------------------------------------------------------------
 def generate_legit_event(merchant_id, cfg, pool, start_ts, event_type):
     rows = []
-    event_id = str(uuid.uuid4())[:8]
+    event_id = str(seeded_uuid())[:8]
 
     if event_type == "flash_sale":
         n_txn = random.randint(40, 150)

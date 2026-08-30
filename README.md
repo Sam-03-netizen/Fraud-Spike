@@ -113,7 +113,7 @@ fraud-spike-detector/
 ```bash
 pip install pandas numpy faker pyarrow lightgbm shap scikit-learn streamlit
 cd src
-python generate_data.py                    # regenerates raw data (seeded, deterministic)
+python generate_data.py                    # regenerates raw data
 python build_features.py                   # rebuilds engineered features
 python train_and_evaluate_day2.py          # baseline + LightGBM on validation
 python day3_isolation_forest_ablation.py   # IF ablation (dropped)
@@ -122,8 +122,19 @@ python day5_final_test_evaluation.py       # the single frozen test run
 streamlit run dashboard.py                 # interactive demo
 ```
 
-Verified to reproduce identical numbers across a Linux sandbox and a Windows
-laptop, different Python/library versions included.
+**Determinism, precisely stated:** row counts, fraud rates, burst timing, every
+engineered feature value, and every model performance metric (precision,
+recall, PR-AUC, held-out-merchant results) reproduce identically across runs
+and machines — verified independently on a Linux sandbox and a Windows laptop.
+The one thing that does **not** reproduce byte-for-byte is the literal ID
+strings (`customer_id`, `card_id`, `device_fingerprint`, `burst_id`), since
+they're generated with `uuid.uuid4()`, which is not affected by `random.seed()`
+— so `raw_transactions.parquet`'s exact hash will differ between runs even
+though its statistical content, and every downstream result, does not. The
+shipped data files in this repository are the exact, unmodified files the
+results in this README were computed from — they are not meant to be
+regenerated to reproduce the numbers, only to demonstrate that the *pipeline
+logic* reproduces them independently.
 
 ## Razorpay relevance
 
