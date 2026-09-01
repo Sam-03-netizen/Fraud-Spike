@@ -1,0 +1,2 @@
+artifacts/lgb_model_val_tuned.txt -text
+*.parquet binary
