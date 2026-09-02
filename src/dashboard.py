@@ -136,30 +136,64 @@ with tab_replay:
 # TAB 2: Metrics
 # =====================================================================
 with tab_metrics:
-    st.warning("These are VALIDATION-set metrics (used for threshold tuning). "
-               "The frozen, unbiased TEST-set evaluation has not been run yet "
-               "(Day 5, single run only). Do not treat these as final numbers.")
+    st.success("**FINAL RESULTS** — frozen test set, single evaluation run (Day 5). "
+               "See `logs/test_evaluation_report.md` for full detail and `logs/test_access_log.txt` "
+               "for the access record.")
 
-    txn_metrics = transaction_level_metrics(val.label_fraud, val.lgb_score, THRESHOLD_TXN)
-    burst_alerts_all = find_burst_windows(val)
-    burst_metrics = burst_level_metrics(burst_alerts_all, true_bursts)
+    test = pd.read_parquet(DATA_DIR / "test_features.parquet")
+    test["lgb_score"] = model.predict(test[FEATURE_COLUMNS])
+    raw_all = pd.read_parquet(DATA_DIR / "raw_transactions.parquet")
+    raw_test_only = raw_all[raw_all.day_index >= 36]
+    test = test.merge(raw_test_only[["transaction_id", "event_type"]], on="transaction_id",
+                       how="left", suffixes=("", "_dup"))
+    if "event_type_dup" in test.columns:
+        test = test.drop(columns=["event_type_dup"])
+    true_bursts_test = get_true_bursts(raw_test_only)
+
+    txn_metrics_test = transaction_level_metrics(test.label_fraud, test.lgb_score, THRESHOLD_TXN)
+    test["txn_alert"] = (test.lgb_score >= THRESHOLD_TXN).astype(int)
+    burst_alerts_test = find_burst_windows(test)
+    burst_metrics_test = burst_level_metrics(burst_alerts_test, true_bursts_test)
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Precision", f"{txn_metrics['precision']:.1%}")
-    c2.metric("Recall", f"{txn_metrics['recall']:.1%}")
-    c3.metric("PR-AUC", f"{pr_auc(val.label_fraud, val.lgb_score):.4f}")
-    c4.metric("Burst detection", f"{burst_metrics['detected']}/{burst_metrics['total_true_bursts']}")
+    c1.metric("Precision (test)", f"{txn_metrics_test['precision']:.1%}")
+    c2.metric("Recall (test)", f"{txn_metrics_test['recall']:.1%}")
+    c3.metric("PR-AUC (test)", f"{pr_auc(test.label_fraud, test.lgb_score):.4f}")
+    c4.metric("Burst detection (test)", f"{burst_metrics_test['detected']}/{burst_metrics_test['total_true_bursts']}")
 
-    st.subheader("Per-attack-type recall")
+    st.subheader("Held-out merchant generalization (M09_gaming, never seen in train/val)")
+    seen = test[test.merchant_id != "M09_gaming"]
+    unseen = test[test.merchant_id == "M09_gaming"]
+    seen_m = transaction_level_metrics(seen.label_fraud, seen.lgb_score, THRESHOLD_TXN)
+    unseen_m = transaction_level_metrics(unseen.label_fraud, unseen.lgb_score, THRESHOLD_TXN)
+    hc1, hc2 = st.columns(2)
+    hc1.metric("Seen merchants — recall", f"{seen_m['recall']:.1%}")
+    hc2.metric("Unseen merchant (M09_gaming) — recall", f"{unseen_m['recall']:.1%}",
+               help="This merchant never appeared in train or validation. This is the strongest "
+                    "generalization evidence in the project.")
+
+    st.subheader("Per-attack-type recall (test)")
     breakdown = []
-    for et in sorted(val[val.event_type.str.startswith("attack_", na=False)].event_type.unique()):
-        sub = val[val.event_type == et]
+    for et in sorted(test[test.event_type.str.startswith("attack_", na=False)].event_type.unique()):
+        sub = test[test.event_type == et]
         breakdown.append(dict(attack_type=et, n=len(sub), recall=(sub.lgb_score >= THRESHOLD_TXN).mean()))
     st.dataframe(pd.DataFrame(breakdown), width="stretch")
+    st.caption("Note: `promo_abuse_burst_slow_drip` is the weakest case (~75% recall) — it's also the "
+               "one attack/stealth combination absent from train and validation entirely.")
 
-    st.subheader("Time-to-detect (detected bursts only)")
-    if burst_metrics["time_to_detect_seconds"]:
-        ttd = pd.Series(burst_metrics["time_to_detect_seconds"])
+    with st.expander("Validation-set metrics (used for threshold tuning, shown for reference only)"):
+        val_txn_metrics = transaction_level_metrics(val.label_fraud, val.lgb_score, THRESHOLD_TXN)
+        val_burst_alerts = find_burst_windows(val)
+        val_burst_metrics = burst_level_metrics(val_burst_alerts, true_bursts)
+        vc1, vc2, vc3, vc4 = st.columns(4)
+        vc1.metric("Precision", f"{val_txn_metrics['precision']:.1%}")
+        vc2.metric("Recall", f"{val_txn_metrics['recall']:.1%}")
+        vc3.metric("PR-AUC", f"{pr_auc(val.label_fraud, val.lgb_score):.4f}")
+        vc4.metric("Burst detection", f"{val_burst_metrics['detected']}/{val_burst_metrics['total_true_bursts']}")
+
+    st.subheader("Time-to-detect (detected bursts only, test set)")
+    if burst_metrics_test["time_to_detect_seconds"]:
+        ttd = pd.Series(burst_metrics_test["time_to_detect_seconds"])
         st.write(f"Median: {ttd.median():.1f}s | Max: {ttd.max():.1f}s | Min: {ttd.min():.1f}s")
         st.bar_chart(ttd)
 
